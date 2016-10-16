@@ -7,6 +7,7 @@ hbar        = 6.58211951e-16              # hbar in eV s
 c           = 299792458e2                 # speed of light in cm/s
 kB          = 8.6173324e-5                # Boltzmann constant in eV/K
 alpha       = 1/137.035999139             # fine structure constant
+ele         = 1.60217662e-19
 
 # Atomic and optical physics
 

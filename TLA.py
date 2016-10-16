@@ -1,5 +1,6 @@
 from numpy import *
 from cosmo import *
+from scipy.integrate import odeint
 
 def comptonCMB(xe, Tm, rs): 
 	# Compton cooling rate
@@ -26,10 +27,16 @@ def CPeebles(xe,rs):
 
 def getTLADE(fz, injRate):
 
-	def TLADE(var, rs):
+	def TLADE(var,rs):
 
 		def xe(y): 
 			return 0.5 + 0.5*tanh(y)
+
+		def dydz(y):
+			return (2*cosh(y)**2) * dtdz(rs) * (CPeebles(xe(y),rs)*(alphae(Tm)*xe(y)**2*nH*rs**3 - 
+					betae(TCMB(rs))*(1-xe(y))*exp(-lyaEng/Tm)) -
+						fz['HIon'](rs,xe(y))*injRate(rs)/(rydberg*nH*rs**3) - 
+						(1 - CPeebles(xe(y),rs))*fz['HLya'](rs,xe(y))*injRate(rs)/(lyaEng*nH*rs**3))
 
 		Tm, y = var
 
@@ -44,15 +51,13 @@ def getTLADE(fz, injRate):
 		dvardz = ([
 			(2*Tm/rs - 
 			dtdz(rs)*(comptonCMB(xe(y), Tm, rs) + 
-				1/(1 + xe(y) + nHe/nH)*2/(3*nH*rs**3)*fz['Heat'](rs)*injRate(rs))),
-			(2*cosh(y)**2) * dtdz(rs) * (CPeebles(xe(y),rs)*
-				(alphae(Tm)*xe(y)**2*nH*rs**3 - 
-					betae(TCMB(rs))*(1-xe(y))*exp(-lyaEng/Tm)) -
-				fz['HIon'](rs)*injRate(rs)/(13.6*nH*rs**3) - 
-				(1 - CPeebles(xe(y),rs))*fz['HLya'](rs)*injRate(rs)/(lyaEng*nH*rs**3)
-				)])
+				1/(1 + xe(y) + nHe/nH)*2/(3*nH*rs**3)*fz['Heat'](rs,xe(y))*injRate(rs))), dydz(y)])
 		
 		return dvardz
 
 	return TLADE
 
+def getIonThermHist(initrs,initCond,fz,injRate,rsVec):
+
+	ionThermHistDE = getTLADE(fz,injRate)
+	return odeint(ionThermHistDE,initCond,rsVec,mxstep=500)
