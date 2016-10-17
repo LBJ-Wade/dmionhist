@@ -11,12 +11,14 @@ ele         = 1.60217662e-19
 
 # Atomic and optical physics
 
-thomsonXSec = 6.652458734e-25                             # Thomson scattering cross section             
-stefBoltz   = pi**2/(60*(hbar**3)*(c**2))        # Stefan-Boltzmann constant
-rydberg     = 13.60569253                                 # 1 Rydberg
-lyaEng      = rydberg*3/4                                 # Lyman-alpha energy
-lyaFreq   = lyaEng/(2*pi*hbar)   # Lyman-alpha frequency
-Lambda2s    = 8.23                                        # 2s->1s decay lifetime
+thomsonXSec = 6.652458734e-25             # Thomson scattering cross section             
+stefBoltz   = pi**2/(60*(hbar**3)*(c**2)) # Stefan-Boltzmann constant
+rydberg     = 13.60569253                 # 1 Rydberg
+lyaEng      = rydberg*3/4                 # Lyman-alpha energy
+lyaFreq     = lyaEng/(2*pi*hbar)          # Lyman-alpha frequency
+Lambda2s    = 8.23                        # 2s->1s decay width, s^-1
+bohrRad     = hbar*c/(me*alpha)           # Bohr radius
+eleRad      = bohrRad*alpha**2            # Classical electron radius
 
 # Hubble
 
@@ -42,6 +44,8 @@ nH          = (1-YHe)*nB
 nHe         = (YHe/4)*nB
 nA          = nH + nHe
 
+# Cosmology functions
+
 def hubblerates(rs, H0=H0, omegaM=omegaM, omegaRad=omegaRad, omegaLambda=omegaLambda): 
 	return H0*sqrt(omegaRad*rs**4 + omegaM*rs**3 + omegaLambda)
 
@@ -52,3 +56,41 @@ def dtdz(rs, H0=H0, omegaM=omegaM, omegaRad=omegaRad, omegaLambda=omegaLambda):
 def TCMB(rs): 
 
 	return 0.235e-3 * rs
+
+# Atomic Cross-Sections
+
+def photoionxsec(eng, species):
+
+	engThres = {'H0':rydberg, 'He0':24.6, 'He1':4*rydberg}
+
+	indAbove = where(eng > engThres[species])
+	xsec = zeros(eng.size)
+
+	if species == 'H0' or species =='He1': 
+		eta = zeros(eng.size)
+		eta[indAbove] = 1./sqrt(eng[indAbove]/engThres[species] - 1.)
+		xsec[indAbove] = (2.**9*pi**2*eleRad**2/(3.*alpha**3)
+			* (engThres[species]/eng[indAbove])**4 
+			* exp(-4*eta[indAbove]*arctan(1./eta[indAbove]))
+			/ (1.-exp(-2*pi*eta[indAbove]))
+			)
+	elif species == 'He0':
+		x = zeros(eng.size)
+		y = zeros(eng.size)
+
+		sigma0 = 9.492e2*1e-18      # in cm^2
+		E0     = 13.61              # in eV
+		ya     = 1.469
+		P      = 3.188
+		yw     = 2.039
+		y0     = 4.434e-1
+		y1     = 2.136
+
+		x[indAbove]    = (eng[indAbove]/E0) - y0
+		y[indAbove]    = sqrt(x[indAbove]**2 + y1**2)
+		xsec[indAbove] = (sigma0*((x[indAbove] - 1)**2 + yw**2) 
+			*y[indAbove]**(0.5*P - 5.5)
+			*(1 + sqrt(y[indAbove]/ya))**(-P)
+			)
+
+	return xsec 
