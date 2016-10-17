@@ -1,5 +1,5 @@
-from numpy import *
-from cosmo import *
+from numpy   import *
+from physics import *
 from scipy.integrate import odeint
 
 def comptonCMB(xe, Tm, rs): 

@@ -1,5 +1,5 @@
 from numpy import *
-from cosmo import *
+from physics import *
 from scipy.interpolate import interp1d
 
 def sigma1DNorm(chan,rs):
