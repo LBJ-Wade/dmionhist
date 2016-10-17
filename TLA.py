@@ -32,11 +32,21 @@ def getTLADE(fz, injRate):
 		def xe(y): 
 			return 0.5 + 0.5*tanh(y)
 
-		def dydz(y):
-			return (2*cosh(y)**2) * dtdz(rs) * (CPeebles(xe(y),rs)*(alphae(Tm)*xe(y)**2*nH*rs**3 - 
-					betae(TCMB(rs))*(1-xe(y))*exp(-lyaEng/Tm)) -
-						fz['HIon'](rs,xe(y))*injRate(rs)/(rydberg*nH*rs**3) - 
-						(1 - CPeebles(xe(y),rs))*fz['HLya'](rs,xe(y))*injRate(rs)/(lyaEng*nH*rs**3))
+		def dTmdz(Tm,y,rs):
+			return 2*Tm/rs - dtdz(rs) * (
+				comptonCMB(xe(y), Tm, rs) 
+				+ 1./(1. + xe(y) + nHe/nH)*2/(3*nH*rs**3)*fz['Heat'](rs,xe(y))*injRate(rs)
+				)
+
+		def dydz(Tm,y,rs):
+			return (2*cosh(y)**2) * dtdz(rs) * (
+				CPeebles(xe(y),rs)*(
+					alphae(Tm)*xe(y)**2*nH*rs**3  
+					- betae(TCMB(rs))*(1.-xe(y))*exp(-lyaEng/Tm)
+					) 
+				- fz['HIon'](rs,xe(y))*injRate(rs)/(rydberg*nH*rs**3) 
+				- (1 - CPeebles(xe(y),rs))*fz['HLya'](rs,xe(y))*injRate(rs)/(lyaEng*nH*rs**3)
+				)
 
 		Tm, y = var
 
@@ -48,10 +58,9 @@ def getTLADE(fz, injRate):
 		# 			betae(TCMB(rs))*(1-xe(y))*exp(-lyaEng/Tm)))])
 
 	
-		dvardz = ([
-			(2*Tm/rs - 
-			dtdz(rs)*(comptonCMB(xe(y), Tm, rs) + 
-				1/(1 + xe(y) + nHe/nH)*2/(3*nH*rs**3)*fz['Heat'](rs,xe(y))*injRate(rs))), dydz(y)])
+		dvardz = (
+			[dTmdz(Tm,y,rs), dydz(Tm,y,rs)]
+			)
 		
 		return dvardz
 
