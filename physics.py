@@ -94,3 +94,40 @@ def photoionxsec(eng, species):
 			)
 
 	return xsec 
+
+def photoionrate(eng,rs,xH,xe,species=None):
+	"""Returns the photoionization rate at a particular redshift, given some ionization history.
+
+	Parameters
+	----------
+	eng : ndarray
+		Energies at which the photoionization rate is to be obtained. 
+	rs : float
+		Redshift at which the photoionization rate is to be obtained. 
+	xH : float
+		Ionization fraction n_H+/n_H. 
+	xe : float
+		Ionization fraction n_e/n_H = n_H+/n_H + n_He+/n_H.
+	species : str, optional
+		A string that must be one of ``'H0'``, ``'He0'`` or ``'He1'``. Determines which photoionization rate is returned. The default value is ``None``, which returns all of the rates in a dict. 
+	
+	Returns
+	-------
+	ionrate : dict
+		Returns a dictionary with keys ``'H0'``, ``'He0'`` and ``'He1'``, each with an ndarray of the same length as `eng`.
+
+	"""
+	xHe = xe - xH
+
+	ionrate = { ('H0' : photoionxsec(eng,'H0') *nH*(1-xH)     *rs**3*c, 
+		        'He0' : photoionxsec(eng,'He0')*(nHe - xHe*nH)*rs**3*c, 
+		        'He1' : photoionxsec(eng,'He1')*xHe*nH        *rs**3*c)
+	}
+	if species is not None:
+		return ionrate[species]
+	else:
+		return ionrate
+
+
+
+

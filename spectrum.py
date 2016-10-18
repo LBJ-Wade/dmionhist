@@ -1,7 +1,6 @@
 """Definition for the class `Spectrum`."""
 
 from numpy import *
-from scipy.interpolate import interp1d
 
 class Spectrum:
 	"""Structure for photon and electron spectra with log-binning in energy.
@@ -188,4 +187,151 @@ class Spectrum:
 
 	 	self.dNdE = [self.totN(type='eng', low=prevBinEngBound[i], upp=prevBinEngBound[i+1]) for i in arange(self.length)]/(self.binWidth*self.eng)
 	 	self.rs   = rsOut
+
+class Spectra:
+	"""Structure for photon and electron spectra over many redshifts, with log-binning in energy.
+	
+	Parameters
+	----------
+	eng : array_like 
+		Energy abscissa for the spectrum and spectrum stored as dN/dE. Must be log-spaced. 
+	rs : array_like
+		The redshifts of the spectra.
+	dNdE : ndarray
+		Two-dimensional array, with dimensions eng.size by rs.size.  
+
+	Attributes
+	----------
+	
+	binWidth : float
+		The *log* bin width. 
+	binBoundary : ndarray
+		The boundary of each energy bin. Has one more entry than ``eng.size``. 
+
+	"""
+
+	def __init__(self, eng, rs, dNdE):
+		
+		if dNdE.shape != (eng.size,rs.size):
+			raise TypeError("dNdE should have dimensions eng.size by rs.size")
+
+		if not all(diff(eng) > 0): 
+			raise TypeError("abscissa must be ordered in increasing energy.")
+		
+		self.eng             = eng
+		self.rs              = rs
+		self.dNdE            = dNdE
+				
+		binWidth         = log(eng[1]) - log(eng[0])
+		self.binWidth    = binWidth
+
+		binBoundary = sqrt(eng[:-1]*eng[1:])
+		lowLim = exp(log(eng[0])  - binWidth/2)
+		uppLim = exp(log(eng[-1]) + binWidth/2)
+		binBoundary = insert(binBoundary,0,lowLim)
+		binBoundary = append(binBoundary,uppLim)
+
+		self.binBoundary = binBoundary
+
+
+	def __add__(self, other):
+		"""Adds two `Spectrum` instances together, or an array to `dNdE`. 
+		
+		Parameters
+		----------
+		other : Spectrum or ndarray
+
+		Returns
+		-------
+		Spectrum
+			New `Spectrum` instance which is the sum of the array with `dNdE`. 
+
+		Raises
+		------
+		TypeError
+			The abcissae are different for the two `Spectrum`. 
+			The redshifts are different for the two `Spectrum`. 
+			`other` is not a `Spectrum` or ``ndarray``. 
+
+		"""
+		if isinstance(other,Spectra):
+			if not array_equal(self.eng, other.eng):
+				raise TypeError("abscissae are different for the two spectra.")
+			if self.rs != other.rs:
+				raise TypeError("redshifts are different for the two spectra.")
+			return Spectra(self.eng, self.rs, self.dNdE + other.dNdE)
+		elif isinstance(other,ndarray) and other.shape == (self.eng.size,self.rs.size): 
+			return Spectra(self.eng, self.rs, self.dNdE + other)
+		else: 
+			raise TypeError("adding an object that is not a list or is the wrong length.")
+
+	def contract(self, mat):
+		# This is designed to contract into eng.
+		if isinstance(mat,ndarray) or isinstance(mat,list):
+			self.dNdE = dot(mat,self.dNdE)
+		else:
+			raise TypeError("can only contract lists or ndarrays.")
+
+	def totN(self, rsInd, type='all', low=None, upp=None):
+		dNdlogE     = self.eng*self.dNdE[:,rsInd]
+		logBinWidth = self.binWidth
+		length      = self.length
+
+		if type == 'bin':
+			lowBound = max([0,low])
+			uppBound = min([upp,length])
+			return sum(dNdlogE[lowBound:uppBound])*logBinWidth
+
+		if type == 'eng':
+			logBinBound = log(self.binBoundary)
+						
+			lowEngBinInd  = interp(log(low),logBinBound,arange(logBinBound.size), left=-1, right=length+1)
+			uppEngBinInd  = interp(log(upp),logBinBound,arange(logBinBound.size), left=-1, right=length+1)
+			
+			NFullBins = self.totN(type='bin', low=int(ceil(lowEngBinInd)), upp=int(floor(uppEngBinInd)))
+			NPartBins = 0
+			if lowEngBinInd > 0 and lowEngBinInd < length and floor(lowEngBinInd) == floor(uppEngBinInd):
+				NPartBins += dNdlogE[int(floor(lowEngBinInd))]*(uppEngBinInd - lowEngBinInd)*logBinWidth
+			else:
+				if lowEngBinInd > 0 and lowEngBinInd < length:
+					NPartBins += dNdlogE[int(floor(lowEngBinInd))]*(ceil(lowEngBinInd)-lowEngBinInd)*logBinWidth
+				if uppEngBinInd > 0 and uppEngBinInd < length:
+					NPartBins += dNdlogE[int(floor(uppEngBinInd))]*(uppEngBinInd - floor(uppEngBinInd))*logBinWidth
+			
+			return NFullBins+NPartBins
+
+		if type == 'all':
+			return sum(dNdlogE)*logBinWidth
+
+	def toteng(self, rsInd, type='all', low=None, upp=None):
+		eng         = self.eng
+		dNdlogE     = self.eng*self.dNdE[:,rsInd]
+		logBinWidth = self.binWidth
+		length      = self.length
+
+		if type == 'bin':
+			lowBound = max([0,low])
+			uppBound = min([upp,length])
+			return dot(self.eng[lowBound:uppBound],dNdlogE[lowBound:uppBound])*logBinWidth
+
+		if type == 'eng':
+			logBinBound = log(self.binBoundary)
+			
+			lowEngBinInd  = interp(log(low), logBinBound, arange(logBinBound.size), left=-1, right=length+1)
+			uppEngBinInd  = interp(log(upp), logBinBound, arange(logBinBound.size), left=-1, right=length+1)
+
+			engFullBins = self.toteng(type='bin', low=int(ceil(lowEngBinInd)), upp=int(floor(uppEngBinInd)))
+			engPartBins = 0
+			if lowEngBinInd > 0 and lowEngBinInd < length and floor(lowEngBinInd) == floor(uppEngBinInd):
+				engPartBins += eng[int(floor(lowEngBinInd))]*dNdlogE[int(floor(lowEngBinInd))]*(uppEngBinInd - lowEngBinInd)*logBinWidth
+			else:
+				if lowEngBinInd > 0 and lowEngBinInd < length:
+					engPartBins += eng[int(floor(lowEngBinInd))]*dNdlogE[int(floor(lowEngBinInd))]*(ceil(lowEngBinInd)-lowEngBinInd)*logBinWidth
+				if uppEngBinInd > 0 and uppEngBinInd < length:
+					engPartBins += eng[int(floor(uppEngBinInd))]*dNdlogE[int(floor(uppEngBinInd))]*(uppEngBinInd - floor(uppEngBinInd))*logBinWidth
+			
+			return engFullBins+engPartBins	
+
+		if type == 'all':
+			return dot(self.eng,dNdlogE)*logBinWidth
 
