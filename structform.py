@@ -1,5 +1,5 @@
 from numpy import *
-from cosmo import *
+from physics import *
 from scipy.interpolate import interp1d
 
 def sigma1DNorm(chan,rs):
@@ -38,27 +38,17 @@ def getstructform(chan,structFormType):
 	maxrsInterp = 52 
 
 	def structform(rs):
-		if isinstance(rs,ndarray):
-			rho = zeros(rs.size)
-			interpRhoInd = where(rs <= maxrsInterp)
-			anaRhoInd = where(rs > maxrsInterp)
-			if chan == 'sWave':
-				rho[interpRhoInd] = interpRhoEff(rs[interpRhoInd])
-				rho[anaRhoInd]    = rhoDM*rs[anaRhoInd]**3
-			elif chan == 'pWave':
-				rho[interpRhoInd] = interpRhoEff(rs[interpRhoInd])*rs[interpRhoInd]
-				rho[anaRhoInd]    = rhoDM*rs[anaRhoInd]**3*sigma1DNorm(chan,rs[anaRhoInd])
-		elif isinstance(rs,float) or isinstance(rs,int):
-			if rs <= maxrsInterp: 
-				if chan == 'sWave':
-					rho = interpRhoEff(rs)
-				elif chan == 'pWave':
-					rho = interpRhoEff(rs)*rs
-			else: 
-				if chan == 'sWave':
-					rho = rhoDM*rs**3
-				if chan == 'pWave':
-					rho = rhoDM*rs**3*sigma1DNorm(chan,rs)
+
+		rho = zeros(rs.size)
+		interpRhoInd = where(rs <= maxrsInterp)
+		anaRhoInd = where(rs > maxrsInterp)
+		if chan == 'sWave':
+			rho[interpRhoInd] = interpRhoEff(rs[interpRhoInd])
+			rho[anaRhoInd]    = rhoDM*rs[anaRhoInd]**3
+		elif chan == 'pWave':
+			rho[interpRhoInd] = interpRhoEff(rs[interpRhoInd])*rs[interpRhoInd]
+			rho[anaRhoInd]    = rhoDM*rs[anaRhoInd]**3*sigma1DNorm(chan,rs[anaRhoInd])
+		
 		return rho
 
 	return structform 		
