@@ -1,7 +1,34 @@
+"""Definition for the class `Spectrum`."""
+
 from numpy import *
 from scipy.interpolate import interp1d
 
 class Spectrum:
+	"""Structure for photon and electron spectra with log-binning in energy.
+	
+	Parameters
+	----------
+	eng, dNdE : array_like 
+		Abscissa for the spectrum and spectrum stored as dN/dE. Must be log-spaced. 
+	rs : float
+		The redshift of the spectrum. 
+	underflowSwitch : bool, optional
+		Sets whether to keep track of underflow. Defaults to ``False``. 
+
+	Attributes
+	----------
+	length : int
+		The length of the `eng` and `dNdE`. 
+	underflow : dict
+		The underflow total number of particles and total energy, initialized to {'N':0., 'eng':0.}. 
+	binWidth : float
+		The *log* bin width. 
+	binBoundary : ndarray
+		The boundary of each energy bin. Has one more entry than `length`. 
+
+	"""
+
+
 	def __init__(self, eng, dNdE, rs, underflowSwitch=False):
 		
 		if eng.size != dNdE.size:
@@ -30,27 +57,49 @@ class Spectrum:
 
 
 	def __add__(self, other):
-		if not array_equal(self.eng, other.eng) or self.rs != other.rs:
-			raise TypeError("abscissae are different for the two spectra")
-		return Spectrum(self.eng, self.dNdE + other.dNdE, self.rs, self.underflowSwitch)
+		"""Adds two `Spectrum` instances together, or an array to `dNdE`. 
+		
+		Parameters
+		----------
+		other : Spectrum or ndarray
+
+		Returns
+		-------
+		Spectrum
+			New `Spectrum` instance which is the sum of the array with `dNdE`. 
+
+		Raises
+		------
+		TypeError
+			The abcissae are different for the two `Spectrum`. 
+			The redshifts are different for the two `Spectrum`. 
+			`other` is not a `Spectrum` or ``ndarray``. 
+
+		"""
+		if isinstance(other,Spectrum):
+			if not array_equal(self.eng, other.eng):
+				raise TypeError("abscissae are different for the two spectra.")
+			if self.rs != other.rs:
+				raise TypeError("redshifts are different for the two spectra.")
+			return Spectrum(self.eng, self.dNdE + other.dNdE, self.rs, self.underflowSwitch)
+		elif isinstance(other,ndarray) and other.ndim == 1 and other.size == self.length: 
+			return Spectrum(self.eng, self.dNdE + other     , self.rs, self.underflowSwitch)
+		else: 
+			raise TypeError("adding an object that is not a list or is the wrong length.")
 
 	def __mul__(self, other):
-		if (isinstance(other,float) or isinstance(other,int) 
-			or isinstance(other,list)
-			or (isinstance(other,ndarray) and other.ndim == 1) 
+		if (isinstance(other,float) or isinstance(other,int) or (isinstance(other,ndarray) and other.ndim == 1) 
 			):
 			return Spectrum(self.eng, other*self.dNdE, self.rs, self.underflowSwitch)
 		else:
-			raise TypeError("can only multiply scalars, lists or ndarrays. Please use Spectrum.contract for matrix multiplication.")
+			raise TypeError("can only multiply scalars or ndarrays. Please use Spectrum.contract for matrix multiplication.")
 
 	def __rmul__(self, other):
-		if (isinstance(other,float) or isinstance(other,int) 
-			or isinstance(other,list)
-			or (isinstance(other,ndarray) and other.ndim == 1) 
+		if (isinstance(other,float) or isinstance(other,int) or (isinstance(other,ndarray) and other.ndim == 1) 
 			):
 			return Spectrum(self.eng, other*self.dNdE, self.rs, self.underflowSwitch)
 		else:
-			raise TypeError("can only multiply scalars, lists or ndarrays. Please use Spectrum.contract for matrix multiplication.")
+			raise TypeError("can only multiply scalars or ndarrays. Please use Spectrum.contract for matrix multiplication.")
 
 	def contract(self, mat):
 		if isinstance(mat,ndarray) or isinstance(mat,list):
