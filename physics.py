@@ -119,10 +119,10 @@ def photoionrate(eng,rs,xH,xe,species=None):
 	"""
 	xHe = xe - xH
 
-	ionrate = { ('H0' : photoionxsec(eng,'H0') *nH*(1-xH)     *rs**3*c, 
-		        'He0' : photoionxsec(eng,'He0')*(nHe - xHe*nH)*rs**3*c, 
-		        'He1' : photoionxsec(eng,'He1')*xHe*nH        *rs**3*c)
-	}
+	ionrate = ({ 'H0': photoionxsec(eng,'H0') *nH*(1-xH)     *rs**3*c, 
+		        'He0': photoionxsec(eng,'He0')*(nHe - xHe*nH)*rs**3*c, 
+		        'He1': photoionxsec(eng,'He1')*xHe*nH        *rs**3*c
+	})
 	if species is not None:
 		return ionrate[species]
 	else:
