@@ -30,7 +30,7 @@ H0   = 100*h*3.241e-20                    # Hubble constant in s
 omegaM      = 0.3156 
 omegaRad    = 8e-5
 omegaLambda = 0.6844
-omegaB      = 0.0225/(h**2)
+omegaB      = 0.02225/(h**2)
 omegaDM     = 0.1198/(h**2)
 
 # Densities
@@ -39,7 +39,7 @@ rhoCrit     = 1.05375e4*(h**2)            # in eV/cm^3
 rhoDM       = rhoCrit*omegaDM
 rhoB        = rhoCrit*omegaB
 nB          = rhoB/mp
-YHe         = 0.245                       # Helium mass abundance from the PDG
+YHe         = 0.250                       # Helium mass abundance from the PDG
 nH          = (1-YHe)*nB
 nHe         = (YHe/4)*nB
 nA          = nH + nHe
@@ -94,3 +94,41 @@ def photoionxsec(eng, species):
 			)
 
 	return xsec 
+
+def photoionrate(rs, eng, xH, xe, atom=None):
+	"""Returns the photoionization rate at a particular redshift, given some ionization history.
+
+	Parameters
+	----------
+	rs : float
+		Redshift at which the photoionization rate is to be obtained.
+	eng : ndarray
+		Energies at which the photoionization rate is to be obtained. 
+	xH : float
+		Ionization fraction n_H+/n_H. 
+	xe : float
+		Ionization fraction n_e/n_H = n_H+/n_H + n_He+/n_H.
+	atom : str, optional
+		A string that must be one of ``'H0'``, ``'He0'`` or ``'He1'``. Determines which photoionization rate is returned. The default value is ``None``, which returns all of the rates in a dict. 
+	
+	Returns
+	-------
+	ionrate : dict
+		Returns a dictionary with keys ``'H0'``, ``'He0'`` and ``'He1'``, each with an ndarray of the same length as `eng`.
+
+	"""
+	atoms = ['H0', 'He0', 'He1']
+
+	xHe = xe - xH
+	atomDensities = {'H0':nH*(1-xH)*rs**3, 'He0':(nHe - xHe*nH)*rs**3, 'He1':xHe*nH*rs**3}
+
+	ionrate = {atom: photoionxsec(eng,atom)*atomDensities[atom]*c for atom in atoms}
+
+	if atom is not None:
+		return ionrate[atom]
+	else:
+		return sum([ionrate[atom] for atom in atoms])
+
+
+
+
