@@ -1,17 +1,20 @@
-"""Definition for the class `Spectrum`."""
+"""Functions and classes for processing spectral data."""
 
 from numpy     import *
 import utilities as utils 
+import matplotlib.pyplot as plt 
 
 class Spectrum:
 	"""Structure for photon and electron spectra with log-binning in energy.
 	
+
 	Parameters
 	----------
 	eng, dNdE : array_like 
 		Abscissa for the spectrum and spectrum stored as dN/dE. Must be log-spaced. 
 	rs : float
 		The redshift of the spectrum. 
+
 
 	Attributes
 	----------
@@ -83,7 +86,7 @@ class Spectrum:
 			newSpectrum.underflow['N'] = self.underflow['N'] + other.underflow['N']
 			newSpectrum.underflow['eng'] = self.underflow['eng'] + other.underflow['eng']
 			return newSpectrum
-		elif isinstance(other,ndarray) and other.ndim == 1 and other.size == self.length: 
+		elif isinstance(other,ndarray): 
 			return Spectrum(self.eng, self.dNdE + other     , self.rs)
 		else: 
 			raise TypeError("adding an object that is not a list or is the wrong length.")
@@ -117,13 +120,19 @@ class Spectrum:
 			newSpectrum.underflow['N'] = self.underflow['N'] + other.underflow['N']
 			newSpectrum.underflow['eng'] = self.underflow['eng'] + other.underflow['eng']
 			return newSpectrum
-		elif isinstance(other,ndarray) and other.ndim == 1 and other.size == self.length: 
+		elif isinstance(other,ndarray): 
 			return Spectrum(self.eng, self.dNdE + other     , self.rs)
 		else: 
-			print(isinstance(other,ndarray))
-			print(other.ndim == 1)
-			print(other.size == self.length)
 			raise TypeError("adding an object that is not a list or is the wrong length.")
+
+	def __sub__(self, other):
+		return self + -1*other
+
+	def __rsub__(self, other):
+		return other + -1*self 
+
+	def __neg__(self):
+		return -1*self
 
 	def __mul__(self, other):
 		if issubdtype(type(other),float) or issubdtype(type(other),integer):
@@ -131,25 +140,38 @@ class Spectrum:
 			newSpectrum.underflow['N'] = self.underflow['N']*other
 			newSpectrum.underflow['eng'] = self.underflow['eng']*other
 			return newSpectrum
-		elif isinstance(other,ndarray) and other.ndim == 1 and other.size == self.length:
+		elif isinstance(other,ndarray):
 			return Spectrum(self.eng, other*self.dNdE, self.rs)
+		elif isinstance(other,Spectrum):
+			if self.eng == other.eng and self.rs == other.rs:
+				return Spectrum(self.eng, self.dNdE*other.dNdE, self.rs)
+			else:
+				raise TypeError("cannot add two spectrum objects with different abscissae.")
 		else:
-			raise TypeError("can only multiply scalars or ndarrays. Please use Spectrum.contract for matrix multiplication.")
+			raise TypeError("can only multiply scalars or ndarrays or Spectrum objects.")
 
 	def __rmul__(self, other):
 		if issubdtype(type(other),float) or issubdtype(type(other),integer):
-			newSpectrum = Spectrum(self.eng, other*self.dNdE, self.rs)
+			newSpectrum = Spectrum(self.eng, self.dNdE*other, self.rs)
 			newSpectrum.underflow['N'] = self.underflow['N']*other
 			newSpectrum.underflow['eng'] = self.underflow['eng']*other
 			return newSpectrum
-		elif isinstance(other,ndarray) and other.ndim == 1 and other.size == self.length:
-			return Spectrum(self.eng, other*self.dNdE, self.rs)
+		elif isinstance(other,ndarray):
+			return Spectrum(self.eng, self.dNdE*other, self.rs)
 		else:
 			print(type(other))
 			raise TypeError("can only multiply scalars or ndarrays. Please use Spectrum.contract for matrix multiplication.")
 
 	def __truediv__(self, other):
-		return self*(1/other)
+		if isinstance(other,Spectrum):
+			invSpec = Spectrum(other.eng, 1/other.dNdE, other.rs)
+			return self*invSpec
+		else: 
+			return self*(1/other)
+
+	def __rtruediv__(self,other):
+		invSpec = Spectrum(self.eng, 1/self.dNdE, self.rs) 
+		return other*invSpec 
 
 	def contract(self, mat):
 		if isinstance(mat,ndarray) or isinstance(mat,list):
@@ -234,6 +256,9 @@ class Spectrum:
 	 	self.dNdE = [self.totN(type='eng', low=prevBinEngBound[i], upp=prevBinEngBound[i+1]) for i in arange(self.length)]/(self.binWidth*self.eng)
 	 	self.rs   = rsOut
 
+	def plot(self):
+		plt.plot(self.eng, self.dNdE)
+
 def sumspectrum(spectrumList):
 
 	newSpectrum = Spectrum(self.eng, zeros(self.eng.size), self.rs[-1])
@@ -244,6 +269,7 @@ def sumspectrum(spectrumList):
 
 class Spectra:
 	"""Structure for photon and electron spectra over many redshifts, with log-binning in energy.
+
 	
 	Parameters
 	----------
@@ -255,6 +281,7 @@ class Spectra:
 	spectrumList : list of Spectrum
 		One-dimensional list of Spectrums. 
 
+
 	Attributes
 	----------
 	
@@ -262,6 +289,7 @@ class Spectra:
 		The *log* bin width. 
 	binBoundary : ndarray
 		The boundary of each energy bin. Has one more entry than ``eng.size``. 
+
 
 	"""
 	#__array_priority__ must be larger than 0, so that radd can work. Otherwise, ndarray + Spectrum works by iterating over the elements of ndarray first, which isn't what we want. 
@@ -301,7 +329,6 @@ class Spectra:
 		binBoundary = append(binBoundary,uppLim)
 
 		self.binBoundary = binBoundary
-
 
 	def __add__(self, other):
 		"""Adds two `Spectrum` instances together, or an array to `dNdE`. 
@@ -391,13 +418,33 @@ class Spectra:
 		else:
 			raise TypeError("can only multiply scalars or ndarrays. Please use Spectrum.contract for matrix multiplication.")
 
+	def __sub__(self, other):
+		return self + -1*other
+
+	def __rsub__(self, other): 
+		return other + -1*self
+
+	def __neg__(self):
+		return -1*self
+
+	def __truediv__(self, other): 
+		if issubdtype(other,Spectra):
+			invSpec = Spectra(other.rs, other.eng, [1./spec for spec in other.spectrumList])
+			return self*invSpec
+		else: 
+			return self*(1/other)
+
+	def __rtruediv__(self, other):
+		invSpec = Spectra(other.rs, other.eng, [1./spec for spec in other.spectrumList])
+		return other*invSpec 
+
 	def sumbyengweight(self, mat):
 		if isinstance(mat,ndarray) or isinstance(mat,list):
 			return array([spec.contract(mat) for spec in self.spectrumList])
 		else:
 			raise TypeError("can only contract lists or ndarrays.")
 
-	def sumbyrsweight(self,weight):
+	def sumbyrsweight(self, weight):
 		if isinstance(weight,ndarray) and weight.ndim == 1:
 			newSpectrum = weight[-1]*self.spectrumList[-1]
 			for i in arange(len(self.spectrumList)-1):
@@ -405,13 +452,38 @@ class Spectra:
 				newSpectrum += weight[i]*self.spectrumList[i]
 			return newSpectrum
 
-	def append(self,spec):
+	def append(self, spec):
 		if not array_equal(self.eng, spec.eng):
 			raise TypeError("new spectrum does not have the same energy abscissa.")
 		if self.rs[-1] <= spec.rs: 
 			raise TypeError("addspectrum currently only supports appending spectra at the end, which must have a lower redshift than the last spectrum.")
 		self.spectrumList.append(spec)
 		self.rs = append(self.rs,spec.rs)
+
+	def plot(self, ind, step=1):
+		if issubdtype(type(ind),integer):
+			plt.plot(self.eng, self.spectrumList[ind].dNdE)
+		elif issubdtype(type(ind),tuple):
+			specToPlot = stack([self.spectrumList[i].dNdE for i in arange(ind[0], ind[1], step)],axis=-1)
+			plt.plot(self.eng, specToPlot)
+		else:
+			raise TypeError("ind should be either an integer or a tuple of integers.")
+
+
+def getspectra(rs, eng, dNdEarr):
+
+	if not issubdtype(dNdEarr,ndarray) or dNdEarr.shape != (rs.size, eng.size):
+		raise typeError("dNdEarr must be an ndarray with dimensions rs.size by eng.size.")
+	else:
+		spectrumList = [dNdE for dNdE in dNdEarr]
+		return Spectra(rs, eng, spectrumList)
+
+def sumspectra(spectraList):
+
+	newSpectra = Spectra[spectraList[0].rs, spectraList[0].eng, []]
+	for spectra in spectraList:
+		newSpectra += spectra
+	return newSpectra
 
 		
 
